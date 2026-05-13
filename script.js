@@ -279,6 +279,12 @@ function renderNotes() {
         return true;
     });
 
+    filtered.sort((a, b) => {
+        const dateDiff = parseSortDateDaily(b.ngay) - parseSortDateDaily(a.ngay);
+        if (dateDiff !== 0) return dateDiff;
+        return parseSortDateDaily(b.ngay_in || b.ngay) - parseSortDateDaily(a.ngay_in || a.ngay);
+    });
+
     if (!filtered.length) {
         container.innerHTML = '<tr><td colspan="9" class="p-12 text-center text-slate-400">📭 Không tìm thấy ghi chú nào phù hợp</td></tr>';
         return;
@@ -352,9 +358,12 @@ function editNote(id) {
     const n = notesData.find(x => x.id === id);
     if (!n) return;
     currentEditNoteId = id;
-    document.getElementById('note_ngay').value = formatDateForInput(n.ngay || '');
-    document.getElementById('note_ngay_in').value = normalizeDateTimeLocal(n.ngay_in || '');
-    document.getElementById('note_ngay_out').value = normalizeDateTimeLocal(n.ngay_out || '');
+    const noteDate = formatDateForInput(n.ngay || '');
+    const noteIn = normalizeDateTimeLocal(n.ngay_in || n.ngay || '');
+    const noteOut = normalizeDateTimeLocal(n.ngay_out || n.ngay_in || n.ngay || '');
+    document.getElementById('note_ngay').value = noteDate;
+    document.getElementById('note_ngay_in').value = noteIn || (noteDate ? `${noteDate}T00:00` : '');
+    document.getElementById('note_ngay_out').value = noteOut || noteIn || (noteDate ? `${noteDate}T00:00` : '');
     setTruong(n.truong || 'Ghi chú');
     document.getElementById('note_ghi_chu').value = n.ghi_chu || '';
     document.getElementById('note_noi_dung').value = n.noi_dung || '';
@@ -840,23 +849,38 @@ function localISO(date) {
 
 function normalizeDateTimeLocal(value) {
     if (!value) return '';
+    const raw = String(value).trim();
+    const parseTime = (parts, fallback = '00:00') => {
+        if (!parts.length) return fallback;
+        const timeMatch = parts[0].match(/^(\d{1,2})(?::(\d{1,2}))?/);
+        if (!timeMatch) return fallback;
+        let hour = parseInt(timeMatch[1], 10);
+        const minute = (timeMatch[2] || '00').padStart(2, '0');
+        const marker = (parts[1] || '').toUpperCase();
+        if (['SA', 'AM'].includes(marker) && hour === 12) hour = 0;
+        if (['CH', 'PM'].includes(marker) && hour < 12) hour += 12;
+        if (hour > 23) return fallback;
+        return `${String(hour).padStart(2, '0')}:${minute}`;
+    };
+
     // Nếu đã đúng định dạng YYYY-MM-DD (có thể chứa T hoặc khoảng trắng)
-    if (value.includes('-') && value.split('-')[0].length === 4) {
-        return value.replace(' ', 'T').slice(0, 16);
+    if (raw.includes('-') && raw.split('-')[0].length === 4) {
+        const parts = raw.replace('T', ' ').split(/\s+/);
+        const datePart = parts[0];
+        return `${datePart}T${parseTime(parts.slice(1))}`;
     }
     // Nếu là định dạng DD/MM/YYYY (từ Google Sheets)
-    if (value.includes('/')) {
-        const parts = value.trim().split(/\s+/);
+    if (raw.includes('/')) {
+        const parts = raw.split(/\s+/);
         const datePart = parts[0];
-        const timePart = parts[1] || '00:00';
         const dParts = datePart.split('/');
         if (dParts.length === 3) {
             // Chuyển sang YYYY-MM-DD
             const isoDate = `${dParts[2]}-${dParts[1].padStart(2, '0')}-${dParts[0].padStart(2, '0')}`;
-            return `${isoDate}T${timePart.slice(0, 5)}`;
+            return `${isoDate}T${parseTime(parts.slice(1))}`;
         }
     }
-    return value.replace(' ', 'T').slice(0, 16);
+    return raw.replace(' ', 'T').slice(0, 16);
 }
 
 function formatDateForSheet(dStr) {
@@ -1275,6 +1299,40 @@ async function saveAddLearning() {
 // --- DASHBOARD LOGIC ---
 let dashboardCharts = { category: null, trend: null, monthly: null };
 
+function parseMoneyValue(value) {
+    if (value === null || value === undefined || value === '') return 0;
+    if (typeof value === 'number') return value;
+
+    let cleaned = String(value).trim().replace(/[^\d,.-]/g, '');
+    const isNegative = cleaned.includes('-');
+    cleaned = cleaned.replace(/-/g, '');
+
+    const separators = cleaned.match(/[,.]/g) || [];
+    if (separators.length > 0) {
+        const lastSeparator = Math.max(cleaned.lastIndexOf(','), cleaned.lastIndexOf('.'));
+        const digitsAfter = cleaned.length - lastSeparator - 1;
+        const isLikelyDecimal = separators.length === 1 && digitsAfter > 0 && digitsAfter <= 2;
+
+        cleaned = isLikelyDecimal
+            ? cleaned.replace(',', '.')
+            : cleaned.replace(/[,.]/g, '');
+    }
+
+    const parsed = parseFloat(cleaned);
+    const signed = isNegative ? -parsed : parsed;
+    return Number.isFinite(signed) ? signed : 0;
+}
+
+function getExpenseRemainingValue(row, key, fallback) {
+    const raw = row[key];
+    if (raw !== undefined && raw !== null && raw !== '') return parseMoneyValue(raw);
+    return fallback;
+}
+
+function formatRemainingValue(value) {
+    return value === null || value === undefined ? '-' : parseMoneyValue(value).toLocaleString();
+}
+
 function populateDashboardFilters() {
     if (!expensesData || expensesData.length === 0) return;
     const months = [...new Set(expensesData.map(e => e.nam_thang))].filter(m => m).sort().reverse();
@@ -1360,7 +1418,7 @@ function renderExpenseDashboard() {
     });
 
     sortedForCalc.forEach(e => {
-        const amount = parseFloat(e.so_tien) || 0;
+        const amount = parseMoneyValue(e.so_tien);
         if (e.tk_chi) {
             balanceMap[e.tk_chi] = (balanceMap[e.tk_chi] || 0) - amount;
             e._bal1 = balanceMap[e.tk_chi];
@@ -1373,7 +1431,7 @@ function renderExpenseDashboard() {
     });
 
     expensesData.forEach(e => {
-        const amount = parseFloat(e.so_tien) || 0;
+        const amount = parseMoneyValue(e.so_tien);
         const type = (e.thu_chi || "").toUpperCase();
         const category = e.danh_muc || "Khác";
         const tkChi = e.tk_chi || "";
@@ -1436,8 +1494,8 @@ function renderExpenseDashboard() {
                 amount: amount,
                 note: note,
                 sortVal: parseSortDate(e.ngay_h || e.ngay),
-                bal1: e._bal1,
-                bal2: e._bal2
+                bal1: getExpenseRemainingValue(e, 'con_lai_1', e._bal1),
+                bal2: getExpenseRemainingValue(e, 'con_lai_2', e._bal2)
             });
         }
     });
@@ -1500,8 +1558,8 @@ function renderExpenseDashboard() {
                     <td class="text-xs text-slate-400 font-mono">${item.tkChi || '-'}</td>
                     <td class="text-xs text-slate-400 font-mono">${item.tkThu || '-'}</td>
                     <td class="text-right font-bold ${item.type === 'THU' ? 'text-emerald-600' : 'text-rose-600'}">${item.amount.toLocaleString()}</td>
-                    <td class="text-right font-mono text-xs ${item.bal1 < 0 ? 'text-rose-500' : 'text-blue-600'}">${item.bal1 !== null ? item.bal1.toLocaleString() : '-'}</td>
-                    <td class="text-right font-mono text-xs ${item.bal2 < 0 ? 'text-rose-500' : 'text-emerald-600'}">${item.bal2 !== null ? item.bal2.toLocaleString() : '-'}</td>
+                    <td class="text-right font-mono text-xs ${parseMoneyValue(item.bal1) < 0 ? 'text-rose-500' : 'text-blue-600'}">${formatRemainingValue(item.bal1)}</td>
+                    <td class="text-right font-mono text-xs ${parseMoneyValue(item.bal2) < 0 ? 'text-rose-500' : 'text-emerald-600'}">${formatRemainingValue(item.bal2)}</td>
                     <td class="text-center">
                         <div class="flex justify-center gap-2">
                             <button onclick="editExpenseRecord('${item.id}')" title="Sửa" class="p-1 hover:bg-blue-100 rounded text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M16.243 3.757a2.828 2.828 0 114 4L7.5 20H3v-4.5L16.243 3.757z" /></svg></button>
@@ -2067,6 +2125,42 @@ function switchModule(module) {
 
 /* --- CALENDAR LOGIC --- */
 let currentCalendarDate = new Date();
+const CALENDAR_VIEW_PREFS_KEY = 'calendarViewPrefs';
+const CALENDAR_FILTER_IDS = [
+    'cal-filter-notes',
+    'cal-filter-expense',
+    'cal-filter-learning',
+    'cal-filter-birthday',
+    'cal-filter-past-notes'
+];
+
+function saveCalendarViewPrefs() {
+    const prefs = {};
+    CALENDAR_FILTER_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) prefs[id] = el.checked;
+    });
+    const searchEl = document.getElementById('cal-search');
+    if (searchEl) prefs.search = searchEl.value;
+    localStorage.setItem(CALENDAR_VIEW_PREFS_KEY, JSON.stringify(prefs));
+}
+
+function restoreCalendarViewPrefs() {
+    try {
+        const prefs = JSON.parse(localStorage.getItem(CALENDAR_VIEW_PREFS_KEY) || '{}');
+        CALENDAR_FILTER_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && typeof prefs[id] === 'boolean') el.checked = prefs[id];
+        });
+        const searchEl = document.getElementById('cal-search');
+        if (searchEl && typeof prefs.search === 'string') searchEl.value = prefs.search;
+    } catch (e) { /* ignore invalid stored prefs */ }
+}
+
+function handleCalendarFilterChange() {
+    saveCalendarViewPrefs();
+    renderCalendar();
+}
 
 function changeCalendarMonth(delta) {
     currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
@@ -2190,6 +2284,8 @@ function renderCalendar() {
 
         const dKey = `${dayNum.toString().padStart(2, '0')}/${(new Date(cellYear, cellMonth, 1).getMonth() + 1).toString().padStart(2, '0')}/${new Date(cellYear, cellMonth, 1).getFullYear()}`;
         const dayEvents = allEvents.filter(e => e._date === dKey);
+        const pastNotesCount = pastNotesMap[dKey]?.length || 0;
+        const visibleEventCount = dayEvents.length + pastNotesCount;
         const isToday = (dayNum === new Date().getDate() && cellMonth === new Date().getMonth() && cellYear === new Date().getFullYear());
         const isCurrentMonth = (cellMonth === month);
 
@@ -2197,7 +2293,7 @@ function renderCalendar() {
         if (!isCurrentMonth) cellClass += 'bg-slate-50/50 text-slate-300 ';
         else if (isToday) cellClass += 'bg-blue-50/50 border-primary/30 z-10 ';
         else cellClass += 'bg-white text-slate-700 ';
-        if (dayEvents.length > 0) cellClass += 'has-events ';
+        if (visibleEventCount > 0) cellClass += 'has-events ';
 
         dayDiv.className = cellClass;
         dayDiv.onclick = () => showCalendarDayDetails(dKey);
@@ -2205,7 +2301,7 @@ function renderCalendar() {
         dayDiv.innerHTML = `
                     <div class="flex justify-between items-start mb-1">
                         <span class="text-sm font-bold ${isToday ? 'bg-primary text-white w-6 h-6 flex items-center justify-center rounded-full shadow-sm' : ''}">${dayNum}</span>
-                        ${dayEvents.length > 0 ? `<span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold">${dayEvents.length}</span>` : ''}
+                        ${visibleEventCount > 0 ? `<span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold" title="${visibleEventCount} mục hiển thị trong ngày">${visibleEventCount}</span>` : ''}
                     </div>
                 `;
 
@@ -2311,6 +2407,8 @@ function startAutoRefresh() {
 }
 
 window.onload = async () => {
+    restoreCalendarViewPrefs();
+
     // Trigger background load immediately
     loadAllData(false);
 

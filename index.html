@@ -54,15 +54,6 @@
         </div>
     </div>
 
-    <!-- Sidebar Toggle (Desktop) -->
-    <button onclick="document.getElementById('sidebar').classList.toggle('sidebar-collapsed')"
-        class="hidden md:flex fixed top-4 left-4 z-[60] bg-white p-2 rounded-lg shadow-md border hover:bg-slate-50 transition-all text-slate-700"
-        title="Thu gọn / Mở rộng thanh bên">
-        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-    </button>
-
     <!-- Màn hình Chính -->
     <div id="mainApp" class="hidden fixed inset-0 bg-white flex flex-col md:flex-row overflow-hidden">
         <!-- Mobile Header -->
@@ -83,23 +74,32 @@
         <!-- Sidebar -->
         <aside id="sidebar"
             class="sidebar-desktop w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 z-30 fixed inset-y-0 left-0 transform -translate-x-full md:translate-x-0 md:static transition-transform duration-300">
-            <div class="p-6 border-b border-slate-200 hidden md:block">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold">
+            <div class="sidebar-header border-b border-slate-200 hidden md:flex items-stretch">
+                <div class="sidebar-brand flex-1 min-w-0 p-4 flex items-center gap-3">
+                    <div class="sidebar-brand-mark w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold shrink-0">
                         H161</div>
                     <div>
                         <h1 class="font-bold text-slate-900">Cá nhân H161</h1>
                         <p class="text-xs text-slate-500">Quản lý thông minh</p>
                     </div>
                 </div>
-            </div>
-            <div class="p-6 border-b border-slate-200">
-                <div class="bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl p-4">
-                    <p id="sidebarUserName" class="font-bold text-slate-900">User</p>
-                    <p id="sidebarUserId" class="text-xs text-slate-500 mt-1">ID: ---</p>
-                </div>
+                <button onclick="document.getElementById('sidebar').classList.toggle('sidebar-collapsed')"
+                    class="sidebar-toggle-btn w-16 border-l border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-primary transition-all"
+                    title="Thu gọn / Mở rộng thanh bên">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M11 7l-5 5 5 5M18 7l-5 5 5 5" />
+                    </svg>
+                </button>
             </div>
             <nav class="flex-1 p-4 space-y-1">
+                <div class="text-xs font-semibold text-slate-400 uppercase px-3 mb-3">TÁC VỤ</div>
+                <button onclick="switchModule('add')" id="nav-add"
+                    class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-700 font-medium"><svg
+                        class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg><span>✨ Thêm mới chung</span></button>
+
                 <div class="text-xs font-semibold text-slate-400 uppercase px-3 mb-3">QUẢN LÝ</div>
                 <button onclick="switchModule('notes')" id="nav-notes"
                     class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-700 font-medium"><svg
@@ -138,19 +138,19 @@
                             d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10l4 4v10a2 2 0 01-2 2zM14 4v4h4" />
                     </svg><span>🗓️ Xem Lịch</span></button>
 
-                <div class="text-xs font-semibold text-slate-400 uppercase px-3 mb-3 mt-6">TÁC VỤ</div>
-                <button onclick="switchModule('add')" id="nav-add"
-                    class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-700 font-medium"><svg
-                        class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg><span>✨ Thêm mới chung</span></button>
             </nav>
-            <div class="p-4 border-t border-slate-200"><button onclick="handleLogout()"
-                    class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-all"><svg
-                        class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="sidebar-footer p-4 border-t border-slate-200 flex items-center gap-3">
+                <div class="sidebar-user-info flex-1 min-w-0">
+                    <p id="sidebarUserName" class="font-bold text-slate-900 truncate">User</p>
+                    <p id="sidebarUserId" class="text-xs text-slate-500 mt-1 truncate">ID: ---</p>
+                </div>
+                <button onclick="handleLogout()"
+                    class="sidebar-logout-btn shrink-0 flex items-center justify-center w-10 h-10 rounded-lg text-rose-600 hover:bg-rose-50 transition-all"
+                    title="Đăng xuất"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path
                             d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg><span>Đăng xuất</span></button></div>
+                    </svg></button>
+            </div>
         </aside>
 
         <!-- Mobile Sidebar Overlay -->
@@ -162,6 +162,13 @@
             <!-- Mobile Bottom Nav -->
             <nav
                 class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-2 z-20">
+                <button onclick="switchModule('add')"
+                    class="mobile-nav-item flex flex-col items-center gap-1 p-2 text-slate-500 hover:text-primary transition-colors">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span class="text-[10px] font-medium">Thêm mới chung</span>
+                </button>
                 <button onclick="switchModule('notes')" class="mobile-nav-item flex flex-col items-center gap-1 p-2">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path
@@ -196,23 +203,16 @@
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10l4 4v10a2 2 0 01-2 2zM14 4v4h4" />
                     </svg>
-                    <span class="text-[10px] font-medium">Lịch</span>
+                    <span class="text-[10px] font-medium">Xem Lịch</span>
                 </button>
 
-                <button onclick="switchModule('add')"
-                    class="mobile-nav-item flex flex-col items-center gap-1 p-2 text-slate-500 hover:text-primary transition-colors">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span class="text-[10px] font-medium">Thêm mới</span>
-                </button>
             </nav>
 
-            <!-- MODULE DASHBOARD CHI TIÊU -->
+            <!-- MODULE DASHBOARD -->
             <div id="module-dashboard" class="module-container hidden p-4 md:p-6">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                     <div>
-                        <h2 class="text-xl md:text-2xl font-bold text-slate-900">📊 Dashboard Chi Tiêu</h2>
+                        <h2 class="text-xl md:text-2xl font-bold text-slate-900">📊 Dashboard</h2>
                         <p class="text-sm text-slate-500">Phân tích và thống kê tài chính trực quan</p>
                     </div>
                     <button onclick="openDashboardDrawer()"
@@ -383,12 +383,11 @@
                 </div>
             </div>
 
-            <!-- MODULE TỔNG HỢP HẰNG NGÀY -->
+            <!-- MODULE HẰNG NGÀY -->
             <div id="module-daily" class="module-container hidden p-4 md:p-6 pb-20 md:pb-6">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                     <div>
-                        <h2 class="text-xl md:text-2xl font-bold text-slate-900 text-center md:text-left w-full">📅 Tổng
-                            Hợp Hằng Ngày</h2>
+                        <h2 class="text-xl md:text-2xl font-bold text-slate-900 text-center md:text-left w-full">📅 Hằng ngày</h2>
                         <p class="text-sm text-slate-500 text-center md:text-left">Lịch sử ghi chú, chi tiêu và học tập
                             đồng bộ</p>
                     </div>
@@ -599,7 +598,7 @@
             <!-- MODULE THÊM MỚI CHUNG -->
             <div id="module-add" class="module-container hidden p-4 md:p-6 text-sm">
                 <div class="mb-4">
-                    <h2 class="text-xl font-bold text-slate-900">✨ Bảng Thêm Mới Dữ Liệu</h2>
+                    <h2 class="text-xl font-bold text-slate-900">✨ Thêm mới chung</h2>
                     <p class="text-xs text-slate-500">Điền và lưu nhanh dữ liệu tại đây.</p>
                 </div>
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -811,11 +810,11 @@
                 </div>
             </div>
 
-            <!-- MODULE LỊCH (CALENDAR) -->
+            <!-- MODULE XEM LỊCH -->
             <div id="module-calendar" class="module-container hidden p-4 md:p-6 flex flex-col bg-slate-50/30">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                     <div>
-                        <h2 class="text-xl md:text-2xl font-bold text-slate-900">🗓️ Chế độ xem Lịch</h2>
+                        <h2 class="text-xl md:text-2xl font-bold text-slate-900">🗓️ Xem Lịch</h2>
                         <p class="text-sm text-slate-500">Tổng hợp Ghi chú, Chi tiêu & Học hỏi</p>
                     </div>
                     <!-- Calendar Controls -->
@@ -847,41 +846,41 @@
                     class="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center gap-6">
                     <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Hiển thị:</span>
                     <label class="flex items-center gap-2 cursor-pointer group">
-                        <input type="checkbox" id="cal-filter-notes" checked onchange="renderCalendar()"
+                        <input type="checkbox" id="cal-filter-notes" checked onchange="handleCalendarFilterChange()"
                             class="w-4 h-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500 transition-all">
                         <span
                             class="text-xs font-bold text-blue-600 group-hover:text-blue-600 transition-colors uppercase">📝
                             Ghi chú</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer group">
-                        <input type="checkbox" id="cal-filter-expense" checked onchange="renderCalendar()"
+                        <input type="checkbox" id="cal-filter-expense" checked onchange="handleCalendarFilterChange()"
                             class="w-4 h-4 rounded border-rose-300 text-rose-600 focus:ring-rose-500 transition-all">
                         <span
                             class="text-xs font-bold text-rose-600 group-hover:text-rose-600 transition-colors uppercase">💰
                             Chi tiêu</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer group">
-                        <input type="checkbox" id="cal-filter-learning" checked onchange="renderCalendar()"
+                        <input type="checkbox" id="cal-filter-learning" checked onchange="handleCalendarFilterChange()"
                             class="w-4 h-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 transition-all">
                         <span
                             class="text-xs font-bold text-emerald-600 group-hover:text-emerald-600 transition-colors uppercase">📚
                             Học hỏi</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer group">
-                        <input type="checkbox" id="cal-filter-birthday" checked onchange="renderCalendar()"
+                        <input type="checkbox" id="cal-filter-birthday" checked onchange="handleCalendarFilterChange()"
                             class="w-4 h-4 rounded border-yellow-400 text-yellow-500 focus:ring-yellow-500 transition-all">
                         <span
                             class="text-xs font-bold text-yellow-600 group-hover:text-yellow-600 transition-colors uppercase">🎂
                             Sinh nhật</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer group">
-                        <input type="checkbox" id="cal-filter-past-notes" checked onchange="renderCalendar()"
+                        <input type="checkbox" id="cal-filter-past-notes" checked onchange="handleCalendarFilterChange()"
                             class="w-4 h-4 rounded border-[#5ce1e6] text-[#5ce1e6] focus:ring-[#5ce1e6] transition-all">
                         <span class="text-xs font-bold text-[#5ce1e6] transition-colors uppercase">⏳ Năm trước</span>
                     </label>
                     <div class="flex-1"></div>
                     <div class="relative w-full md:w-64">
-                        <input type="text" id="cal-search" oninput="renderCalendar()" placeholder="Tìm kiếm sự kiện..."
+                        <input type="text" id="cal-search" oninput="handleCalendarFilterChange()" placeholder="Tìm kiếm sự kiện..."
                             class="w-full pl-9 pr-4 py-1.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
                         <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none"
                             viewBox="0 0 24 24" stroke="currentColor">
@@ -921,11 +920,11 @@
                 </div>
             </div>
 
-            <!-- MODULE GHI CHÚ - DẠNG BẢNG -->
+            <!-- MODULE GHI CHÚ -->
             <div id="module-notes" class="module-container hidden p-4 md:p-6">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                     <div>
-                        <h2 class="text-xl md:text-2xl font-bold text-slate-900">📝 Ghi chú công việc</h2>
+                        <h2 class="text-xl md:text-2xl font-bold text-slate-900">📝 Ghi chú</h2>
                         <p class="text-sm text-slate-500">Quản lý ghi chú dạng bảng chuyên nghiệp</p>
                     </div>
                     <button onclick="openNoteModal()"
@@ -1018,11 +1017,11 @@
                 </div>
             </div>
 
-            <!-- MODULE CHI TIÊU - ĐẦY ĐỦ TRƯỜNG -->
+            <!-- MODULE CHI TIÊU -->
             <div id="module-expense" class="module-container hidden p-6">
                 <div class="flex justify-between items-center mb-6">
                     <div>
-                        <h2 class="text-2xl font-bold">💰 Quản lý chi tiêu</h2>
+                        <h2 class="text-2xl font-bold">💰 Chi tiêu</h2>
                         <p class="text-slate-500">Theo dõi thu chi với tài khoản đối ứng</p>
                     </div><button onclick="openExpenseModal()"
                         class="bg-primary text-white px-5 py-2.5 rounded-xl font-bold">+ Thêm giao dịch</button>
@@ -1063,11 +1062,11 @@
                 </div>
             </div>
 
-            <!-- MODULE HỌC HỎI - ĐẦY ĐỦ TRƯỜNG -->
+            <!-- MODULE HỌC HỎI -->
             <div id="module-learning" class="module-container hidden p-6">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                     <div>
-                        <h2 class="text-2xl font-bold text-slate-900">📚 Kho tri thức Học hỏi</h2>
+                        <h2 class="text-2xl font-bold text-slate-900">📚 Học hỏi</h2>
                         <p class="text-sm text-slate-500">Ghi lại những kiến thức và tài liệu quý giá</p>
                     </div>
                     <div class="flex items-center gap-3 w-full md:w-auto">
@@ -1229,7 +1228,7 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-6 space-y-6">
-            <!-- Form Body: Matches 'Bảng Thêm Mới Dữ Liệu' -->
+            <!-- Form Body: Matches 'Thêm mới chung' -->
             <div class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2">

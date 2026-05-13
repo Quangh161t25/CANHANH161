@@ -37,10 +37,13 @@ tr:hover { background-color: #f1f5f9; }
 .sidebar-collapsed .nav-item span { display: none; }
 .sidebar-collapsed .nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
 .sidebar-collapsed .nav-item svg { margin: 0; }
-.sidebar-collapsed header, .sidebar-collapsed .text-xs, .sidebar-collapsed #sidebarUserName, .sidebar-collapsed #sidebarUserId { display: none; }
-.sidebar-collapsed aside > div:first-child { padding: 1rem; }
-.sidebar-collapsed aside > div:first-child h1, .sidebar-collapsed aside > div:first-child p { display: none; }
+.sidebar-collapsed header, .sidebar-collapsed .text-xs { display: none; }
+.sidebar-collapsed .sidebar-brand { display: none; }
+.sidebar-collapsed .sidebar-toggle-btn { width: 100%; min-height: 4.5rem; border-left: 0; }
+.sidebar-collapsed .sidebar-toggle-btn svg { transform: rotate(180deg); }
 .sidebar-collapsed .nav-item.active { border-radius: 0; }
+.sidebar-collapsed .sidebar-footer { justify-content: center; padding-left: 0; padding-right: 0; }
+.sidebar-collapsed .sidebar-user-info { display: none; }
 
 /* Date control groups */
 .date-control-group { display: flex; align-items: center; gap: 0.25rem; }
