@@ -34,6 +34,101 @@ let notesData = [], expensesData = [], learningData = [], staffData = [];
 let currentEditNoteId = null, currentEditExpenseId = null, currentEditLearningId = null;
 let currentModule = 'notes';
 let dailyCurrentPage = 1;
+let selectedCalendarDayIso = '';
+const tableSortState = {
+    notes: { key: 'ngay', dir: 'desc' },
+    expense: { key: 'ngay', dir: 'desc' },
+    learning: { key: 'ngay', dir: 'desc' }
+};
+
+function escapeHTML(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+}
+
+function compareTableValues(a, b, key, type) {
+    if (['ngay', 'ngay_h', 'ngay_in'].includes(key)) {
+        const getDateValue = (row) => {
+            if (type === 'expense') return row.ngay_h || row.ngay;
+            if (type === 'notes') return row.ngay_in || row.ngay;
+            return row.ngay;
+        };
+        return parseSortDateDaily(getDateValue(a)) - parseSortDateDaily(getDateValue(b));
+    }
+    if (key === 'so_tien') return (parseFloat(a.so_tien) || 0) - (parseFloat(b.so_tien) || 0);
+    return String(a[key] || '').localeCompare(String(b[key] || ''), 'vi', { sensitivity: 'base' });
+}
+
+function sortRows(rows, tableName) {
+    const state = tableSortState[tableName];
+    if (!state) return rows;
+    return [...rows].sort((a, b) => {
+        const result = compareTableValues(a, b, state.key, tableName);
+        return state.dir === 'asc' ? result : -result;
+    });
+}
+
+function setTableSort(tableName, key) {
+    const state = tableSortState[tableName];
+    if (!state) return;
+    if (state.key === key) state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+    else {
+        state.key = key;
+        state.dir = ['ngay', 'so_tien'].includes(key) ? 'desc' : 'asc';
+    }
+    if (tableName === 'notes') renderNotes();
+    if (tableName === 'expense') renderExpenses();
+    if (tableName === 'learning') renderLearning();
+}
+
+function openTextPreview(title, text, meta = '') {
+    if (!text) return;
+    let overlay = document.getElementById('textPreviewOverlay');
+    if (!overlay) {
+        document.body.insertAdjacentHTML('beforeend', `
+            <div id="textPreviewOverlay" onclick="closeTextPreview()" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[120] hidden"></div>
+            <div id="textPreviewModal" class="text-preview-modal fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-2xl bg-white rounded-2xl shadow-2xl z-[121] hidden opacity-0 scale-95 overflow-hidden">
+                <div class="p-5 border-b flex items-start justify-between gap-4">
+                    <div>
+                        <h3 id="textPreviewTitle" class="font-bold text-slate-900 text-lg"></h3>
+                        <p id="textPreviewMeta" class="text-xs text-slate-500 mt-1"></p>
+                    </div>
+                    <button onclick="closeTextPreview()" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500">✕</button>
+                </div>
+                <div id="textPreviewBody" class="p-5 max-h-[65vh] overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-slate-700"></div>
+                <div class="p-4 border-t bg-slate-50 flex justify-end">
+                    <button id="textPreviewCopyBtn" class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold">Copy</button>
+                </div>
+            </div>
+        `);
+        overlay = document.getElementById('textPreviewOverlay');
+    }
+    document.getElementById('textPreviewTitle').textContent = title;
+    document.getElementById('textPreviewMeta').textContent = meta;
+    document.getElementById('textPreviewBody').textContent = text;
+    document.getElementById('textPreviewCopyBtn').onclick = () => navigator.clipboard.writeText(text);
+    const modal = document.getElementById('textPreviewModal');
+    overlay.classList.remove('hidden');
+    modal.classList.remove('hidden');
+    setTimeout(() => { modal.classList.remove('opacity-0', 'scale-95'); modal.classList.add('opacity-100', 'scale-100'); }, 10);
+}
+
+function openRecordFieldPreview(kind, id, field, title) {
+    const source = kind === 'notes' ? notesData : kind === 'expense' ? expensesData : learningData;
+    const item = source.find(row => row.id === id);
+    if (!item) return;
+    openTextPreview(title, item[field] || '', item.ngay || item.ngay_h || '');
+}
+
+function closeTextPreview() {
+    const overlay = document.getElementById('textPreviewOverlay');
+    const modal = document.getElementById('textPreviewModal');
+    if (!overlay || !modal) return;
+    modal.classList.add('opacity-0', 'scale-95');
+    modal.classList.remove('opacity-100', 'scale-100');
+    setTimeout(() => { overlay.classList.add('hidden'); modal.classList.add('hidden'); }, 180);
+}
 
 async function getAccessToken() {
     if (accessToken && Date.now() < tokenExpiry - 300000) return accessToken;
@@ -279,11 +374,7 @@ function renderNotes() {
         return true;
     });
 
-    filtered.sort((a, b) => {
-        const dateDiff = parseSortDateDaily(b.ngay) - parseSortDateDaily(a.ngay);
-        if (dateDiff !== 0) return dateDiff;
-        return parseSortDateDaily(b.ngay_in || b.ngay) - parseSortDateDaily(a.ngay_in || a.ngay);
-    });
+    filtered = sortRows(filtered, 'notes');
 
     if (!filtered.length) {
         container.innerHTML = '<tr><td colspan="9" class="p-12 text-center text-slate-400">📭 Không tìm thấy ghi chú nào phù hợp</td></tr>';
@@ -292,13 +383,13 @@ function renderNotes() {
 
     container.innerHTML = filtered.map(n => `
                 <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="text-xs text-slate-400 font-mono">${n.id || ''}</td>
-                    <td class="whitespace-nowrap font-bold text-slate-800">${n.ngay || ''}</td>
+                    <td class="text-xs text-slate-400 font-mono">${escapeHTML(n.id || '')}</td>
+                    <td class="whitespace-nowrap font-bold text-slate-800">${escapeHTML(n.ngay || '')}</td>
                     <td class="text-xs text-slate-500 font-mono">${getTimePart(n.ngay_in)}</td>
                     <td class="text-xs text-slate-500 font-mono">${getTimePart(n.ngay_out)}</td>
-                    <td><div class="font-bold text-primary">${n.truong || ''}</div></td>
-                    <td><div class="text-xs text-slate-500 max-w-[150px] whitespace-pre-wrap">${n.ghi_chu || ''}</div></td>
-                    <td><div class="text-xs text-slate-500 max-w-[200px] whitespace-pre-wrap">${n.noi_dung || ''}</div></td>
+                    <td><div class="font-bold text-primary">${escapeHTML(n.truong || '')}</div></td>
+                    <td><div onclick="openRecordFieldPreview('notes','${n.id}','ghi_chu','Ghi chú')" class="preview-cell text-xs text-slate-500 max-w-[150px] whitespace-pre-wrap line-clamp-2">${escapeHTML(n.ghi_chu || '')}</div></td>
+                    <td><div onclick="openRecordFieldPreview('notes','${n.id}','noi_dung','Nội dung')" class="preview-cell text-xs text-slate-500 max-w-[200px] whitespace-pre-wrap line-clamp-2">${escapeHTML(n.noi_dung || '')}</div></td>
                     <td class="font-bold text-rose-600 text-center">${calcAging(n.ngay)}</td>
                     <td class="text-center">
                         <div class="flex items-center justify-center gap-2">
@@ -379,10 +470,10 @@ function editNote(id) {
     document.getElementById('notePanelOverlay').classList.add('open');
 }
 
-function createNewNote() {
+function createNewNote(dateValue = null) {
     currentEditNoteId = null;
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
+    const now = dateValue ? new Date(`${dateValue}T${localISO(new Date()).split('T')[1]}`) : new Date();
+    const dateStr = dateValue || formatLocalDate(now);
     const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
 
     document.getElementById('note_ngay').value = dateStr;
@@ -427,13 +518,14 @@ function renderExpenses() {
 
     const container = document.getElementById('expenseList');
     if (!expensesData.length) { container.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400">Chưa có giao dịch</td></tr>'; return; }
-    container.innerHTML = expensesData.map(e => `
+    const sortedExpenses = sortRows(expensesData, 'expense');
+    container.innerHTML = sortedExpenses.map(e => `
                 <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="whitespace-nowrap"><div class="font-bold text-slate-900">${e.ngay || ''}</div>${e.ngay_h ? `<div class="text-xs text-slate-400">${getTimePart(e.ngay_h)}</div>` : ''}</td>
-                    <td><span class="px-2 py-1 rounded text-xs font-bold ${e.thu_chi?.toUpperCase() === 'THU' ? 'bg-emerald-100 text-emerald-700' : e.thu_chi?.toUpperCase() === 'CHI' ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700'}">${e.thu_chi || ''}</span></td>
-                    <td class="font-medium text-slate-700">${e.danh_muc || ''}</td>
-                    <td class="text-slate-500 max-w-[200px] truncate">${e.chi_tiet || ''}</td>
-                    <td class="text-xs text-slate-500">Nợ: <span class="font-medium text-slate-700">${e.tk_chi || '-'}</span><br>Có: <span class="font-medium text-slate-700">${e.tk_thu || '-'}</span></td>
+                    <td class="whitespace-nowrap"><div class="font-bold text-slate-900">${escapeHTML(e.ngay || '')}</div>${e.ngay_h ? `<div class="text-xs text-slate-400">${getTimePart(e.ngay_h)}</div>` : ''}</td>
+                    <td><span class="px-2 py-1 rounded text-xs font-bold ${e.thu_chi?.toUpperCase() === 'THU' ? 'bg-emerald-100 text-emerald-700' : e.thu_chi?.toUpperCase() === 'CHI' ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700'}">${escapeHTML(e.thu_chi || '')}</span></td>
+                    <td class="font-medium text-slate-700">${escapeHTML(e.danh_muc || '')}</td>
+                    <td onclick="openRecordFieldPreview('expense','${e.id}','chi_tiet','Chi tiết')" class="preview-cell text-slate-500 max-w-[200px] truncate">${escapeHTML(e.chi_tiet || '')}</td>
+                    <td class="text-xs text-slate-500">Nợ: <span class="font-medium text-slate-700">${escapeHTML(e.tk_chi || '-')}</span><br>Có: <span class="font-medium text-slate-700">${escapeHTML(e.tk_thu || '-')}</span></td>
                     <td class="whitespace-nowrap font-bold ${e.thu_chi?.toUpperCase() === 'THU' ? 'text-emerald-600' : e.thu_chi?.toUpperCase() === 'CHI' ? 'text-rose-600' : 'text-slate-700'}">
                         ${e.thu_chi?.toUpperCase() === 'THU' ? '+' : e.thu_chi?.toUpperCase() === 'CHI' ? '-' : ''} ${parseFloat(e.so_tien || 0).toLocaleString()} đ
                     </td>
@@ -532,33 +624,79 @@ async function deleteExpense(id) {
 }
 
 /* --- HỌC HỎI LOGIC --- */
+async function copyLearningField(id, field, btn) {
+    const item = learningData.find(l => l.id === id);
+    const text = item?.[field] || '';
+    if (!text) return;
+    try {
+        await navigator.clipboard.writeText(text);
+        if (btn) {
+            const oldText = btn.textContent;
+            btn.textContent = '✓';
+            setTimeout(() => { btn.textContent = oldText; }, 900);
+        }
+    } catch (err) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+    }
+}
+
+function renderCopyButton(id, field) {
+    return `<button type="button" onclick="event.stopPropagation(); copyLearningField('${id}', '${field}', this)" class="learning-copy-btn shrink-0 opacity-0 w-6 h-6 rounded-md text-slate-400 hover:text-primary hover:bg-blue-50 transition-all" title="Copy">⧉</button>`;
+}
+
 function renderLearning() {
     if (currentModule !== 'learning') return;
     const container = document.getElementById('learningList');
     if (!container) return;
 
     const searchQuery = (document.getElementById('learning-search-input')?.value || "").toLowerCase().trim();
-    const filtered = learningData.filter(l => {
+    let filtered = learningData.filter(l => {
         if (!searchQuery) return true;
         const content = `${l.truong} ${l.noi_dung} ${l.ghi_chu} ${l.mota} ${l.id}`.toLowerCase();
         return content.includes(searchQuery);
     });
+    filtered = sortRows(filtered, 'learning');
 
     container.innerHTML = filtered.map(l => `
                 <tr class="hover:bg-slate-50 transition-colors group">
-                    <td class="whitespace-nowrap font-medium text-slate-500">${l.ngay || ''}</td>
-                    <td>
-                        <div class="flex flex-wrap gap-1">
-                            ${(l.truong || '').split(',').map(t => `<span class="px-2 py-0.5 bg-blue-50 text-primary text-[10px] font-bold rounded-md border border-blue-100">${t.trim()}</span>`).join('')}
+                    <td class="whitespace-nowrap font-medium text-slate-500 align-top">${escapeHTML(l.ngay || '')}</td>
+                    <td class="align-top">
+                        <div class="learning-cell flex items-start gap-2">
+                            <div class="flex flex-wrap gap-1 flex-1 min-w-0">
+                            ${(l.truong || '').split(',').map(t => `<span class="px-2 py-0.5 bg-blue-50 text-primary text-[10px] font-bold rounded-md border border-blue-100">${escapeHTML(t.trim())}</span>`).join('')}
+                            </div>
+                            ${l.truong ? renderCopyButton(l.id, 'truong') : ''}
                         </div>
                     </td>
-                    <td class="font-bold text-slate-900">${l.noi_dung || ''}</td>
-                    <td class="text-slate-600 italic text-[11px] line-clamp-2">${l.ghi_chu || ''}</td>
-                    <td class="text-slate-500 text-[11px]">${l.mota || ''}</td>
-                    <td class="text-center">
+                    <td class="align-top">
+                        <div class="learning-cell flex items-start gap-2">
+                            <div onclick="openRecordFieldPreview('learning','${l.id}','noi_dung','Nội dung')" class="preview-cell flex-1 min-w-0 font-bold text-slate-900 whitespace-pre-wrap break-words line-clamp-2">${escapeHTML(l.noi_dung || '')}</div>
+                            ${l.noi_dung ? renderCopyButton(l.id, 'noi_dung') : ''}
+                        </div>
+                    </td>
+                    <td class="align-top">
+                        <div class="learning-cell flex items-start gap-2">
+                            <div onclick="openRecordFieldPreview('learning','${l.id}','ghi_chu','Ghi chú')" class="preview-cell flex-1 min-w-0 text-slate-600 italic text-[10px] leading-snug line-clamp-2 whitespace-pre-wrap break-words">${escapeHTML(l.ghi_chu || '')}</div>
+                            ${l.ghi_chu ? renderCopyButton(l.id, 'ghi_chu') : ''}
+                        </div>
+                    </td>
+                    <td class="align-top">
+                        <div class="learning-cell flex items-start gap-2">
+                            <div onclick="openRecordFieldPreview('learning','${l.id}','mota','Mô tả')" class="preview-cell flex-1 min-w-0 text-slate-500 text-[11px] whitespace-pre-wrap break-words line-clamp-2">${escapeHTML(l.mota || '')}</div>
+                            ${l.mota ? renderCopyButton(l.id, 'mota') : ''}
+                        </div>
+                    </td>
+                    <td class="text-center align-top">
                         ${l.link ? `<a href="${l.link}" target="_blank" class="text-primary hover:underline font-bold">🔗</a>` : '-'}
                     </td>
-                    <td class="text-center">
+                    <td class="text-center align-top">
                         <div class="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onclick="editLearning('${l.id}')" class="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg></button>
                             <button onclick="deleteLearning('${l.id}')" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
@@ -962,13 +1100,14 @@ function get24HNow() {
     return { date: localISO(now).split('T')[0], full: localISO(now) };
 }
 
-function openExpenseModal() {
+function openExpenseModal(dateValue = null) {
     currentEditExpenseId = null;
     document.getElementById('expenseModalOverlay').classList.add('open');
     document.getElementById('expenseModal').classList.add('open');
     const now = new Date();
-    document.getElementById('expense_ngay').value = localISO(now).split('T')[0];
-    document.getElementById('expense_ngay_h').value = localISO(now);
+    const timePart = localISO(now).split('T')[1];
+    document.getElementById('expense_ngay').value = dateValue || localISO(now).split('T')[0];
+    document.getElementById('expense_ngay_h').value = dateValue ? `${dateValue}T${timePart}` : localISO(now);
     document.getElementById('expense_danh_muc').value = '';
     document.getElementById('expense_chi_tiet').value = '';
     document.getElementById('expense_tk_chi').value = '';
@@ -976,12 +1115,12 @@ function openExpenseModal() {
     document.getElementById('expense_so_tien').value = '';
     setExpenseThuChi('CHI');
 }
-function openLearningModal() {
+function openLearningModal(dateValue = null) {
     currentEditLearningId = null;
     document.getElementById('learningModalOverlay').classList.add('open');
     document.getElementById('learningModal').classList.add('open');
     const now = new Date();
-    document.getElementById('learning_ngay').value = localISO(now).split('T')[0];
+    document.getElementById('learning_ngay').value = dateValue || localISO(now).split('T')[0];
     document.getElementById('learning_truong').value = '';
     document.getElementById('learning_noi_dung').value = '';
     document.getElementById('learning_ghi_chu').value = '';
@@ -2093,6 +2232,9 @@ function switchModule(module) {
         modEl.classList.remove('hidden');
         // Call init functions AFTER showing module
         if (module === 'add') initQuickAddForm();
+        if (module === 'notes') renderNotes();
+        if (module === 'expense') renderExpenses();
+        if (module === 'learning') renderLearning();
         if (module === 'dashboard') renderExpenseDashboard();
         if (module === 'daily') setDailyQuickFilter('today');
         if (module === 'calendar') renderCalendar();
@@ -2170,6 +2312,77 @@ function changeCalendarMonth(delta) {
 function goCalendarToday() {
     currentCalendarDate = new Date();
     renderCalendar();
+}
+
+function normalizeCalendarKey(dateStr) {
+    const parsed = parseSimpleDate(dateStr);
+    if (!parsed || !parsed.includes('/')) return '';
+    const [d, m, y] = parsed.split('/');
+    return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+}
+
+function calendarKeyToInputDate(dKey) {
+    const [d, m, y] = dKey.split('/');
+    return `${y}-${m}-${d}`;
+}
+
+function renderCalDayCard(type, item) {
+    if (type === 'note') {
+        return `<div class="bg-white border border-blue-100 rounded-xl p-3">
+            <div class="text-[10px] font-bold text-blue-600 uppercase mb-1">${escapeHTML(item.truong || 'Ghi chú')}</div>
+            <div onclick="openRecordFieldPreview('notes','${item.id}','ghi_chu','Ghi chú')" class="preview-cell text-sm font-bold text-slate-800 line-clamp-2">${escapeHTML(item.ghi_chu || item.noi_dung || '')}</div>
+            <div class="text-[10px] text-slate-400 mt-2">${escapeHTML(getTimePart(item.ngay_in) || item.ngay || '')}</div>
+        </div>`;
+    }
+    if (type === 'expense') {
+        const isThu = item.thu_chi?.toUpperCase() === 'THU';
+        return `<div class="bg-white border border-rose-100 rounded-xl p-3">
+            <div class="flex justify-between gap-3">
+                <div>
+                    <div class="text-[10px] font-bold ${isThu ? 'text-emerald-600' : 'text-rose-600'} uppercase">${escapeHTML(item.thu_chi || '')}</div>
+                    <div onclick="openRecordFieldPreview('expense','${item.id}','chi_tiet','Chi tiết')" class="preview-cell text-sm font-bold text-slate-800 line-clamp-2">${escapeHTML(item.danh_muc || '')}: ${escapeHTML(item.chi_tiet || '')}</div>
+                </div>
+                <div class="font-bold whitespace-nowrap ${isThu ? 'text-emerald-600' : 'text-rose-600'}">${isThu ? '+' : '-'}${(parseFloat(item.so_tien) || 0).toLocaleString()}đ</div>
+            </div>
+        </div>`;
+    }
+    return `<div class="bg-white border border-emerald-100 rounded-xl p-3">
+        <div class="text-[10px] font-bold text-emerald-600 uppercase mb-1">${escapeHTML(item.truong || 'Học hỏi')}</div>
+        <div onclick="openRecordFieldPreview('learning','${item.id}','noi_dung','Nội dung')" class="preview-cell text-sm font-bold text-slate-800 line-clamp-2">${escapeHTML(item.noi_dung || item.ghi_chu || '')}</div>
+    </div>`;
+}
+
+function showCalendarDayDetails(dKey) {
+    selectedCalendarDayIso = calendarKeyToInputDate(dKey);
+    const dayNotes = notesData.filter(n => normalizeCalendarKey(n.ngay) === dKey);
+    const dayExpenses = expensesData.filter(e => normalizeCalendarKey(e.ngay) === dKey);
+    const dayLearning = learningData.filter(l => normalizeCalendarKey(l.ngay) === dKey);
+
+    document.getElementById('calDayTitle').textContent = `Chi tiết ngày ${dKey}`;
+    document.getElementById('calDaySubtitle').textContent = `${dayNotes.length} ghi chú • ${dayExpenses.length} chi tiêu • ${dayLearning.length} học hỏi`;
+    document.getElementById('calDay-notes-list').innerHTML = dayNotes.map(n => renderCalDayCard('note', n)).join('') || '<div class="text-sm text-slate-400 italic">Không có ghi chú</div>';
+    document.getElementById('calDay-expense-list').innerHTML = dayExpenses.map(e => renderCalDayCard('expense', e)).join('') || '<div class="text-sm text-slate-400 italic">Không có chi tiêu</div>';
+    document.getElementById('calDay-learning-list').innerHTML = dayLearning.map(l => renderCalDayCard('learning', l)).join('') || '<div class="text-sm text-slate-400 italic">Không có học hỏi</div>';
+
+    const overlay = document.getElementById('calDayModalOverlay');
+    const modal = document.getElementById('calDayModal');
+    overlay.classList.remove('hidden');
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modal.classList.add('opacity-100', 'scale-100');
+        modal.classList.remove('opacity-0', 'scale-95');
+    }, 10);
+}
+
+function closeCalDayModal() {
+    const overlay = document.getElementById('calDayModalOverlay');
+    const modal = document.getElementById('calDayModal');
+    modal.classList.add('opacity-0', 'scale-95');
+    modal.classList.remove('opacity-100', 'scale-100');
+    setTimeout(() => {
+        overlay.classList.add('hidden');
+        modal.classList.add('hidden');
+    }, 200);
 }
 
 function renderCalendar() {

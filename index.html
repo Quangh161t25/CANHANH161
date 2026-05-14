@@ -999,12 +999,12 @@
                             <thead>
                                 <tr>
                                     <th class="w-12">ID</th>
-                                    <th>Ngày</th>
+                                    <th class="sortable-th" onclick="setTableSort('notes','ngay')">Ngày</th>
                                     <th>Vào</th>
                                     <th>Ra</th>
-                                    <th>Trường</th>
-                                    <th>Ghi chú</th>
-                                    <th>Nội dung</th>
+                                    <th class="sortable-th" onclick="setTableSort('notes','truong')">Trường</th>
+                                    <th class="sortable-th" onclick="setTableSort('notes','ghi_chu')">Ghi chú</th>
+                                    <th class="sortable-th" onclick="setTableSort('notes','noi_dung')">Nội dung</th>
                                     <th>Bao lâu</th>
                                     <th class="text-center">Thao tác</th>
                                 </tr>
@@ -1045,12 +1045,12 @@
                         <table class="min-w-full">
                             <thead>
                                 <tr>
-                                    <th>Ngày</th>
-                                    <th>Loại</th>
+                                    <th class="sortable-th" onclick="setTableSort('expense','ngay')">Ngày</th>
+                                    <th class="sortable-th" onclick="setTableSort('expense','thu_chi')">Loại</th>
                                     <th>Danh mục</th>
                                     <th>Chi tiết</th>
                                     <th>TK Chi/Thu</th>
-                                    <th>Số tiền</th>
+                                    <th class="sortable-th" onclick="setTableSort('expense','so_tien')">Số tiền</th>
                                     <th class="text-center">Thao tác</th>
                                 </tr>
                             </thead>
@@ -1113,16 +1113,25 @@
                 </div>
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="table-container">
-                        <table class="min-w-full">
+                        <table class="min-w-full table-fixed">
+                            <colgroup>
+                                <col class="w-24">
+                                <col class="w-40">
+                                <col class="w-[34%]">
+                                <col class="w-[16%]">
+                                <col class="w-[18%]">
+                                <col class="w-16">
+                                <col class="w-24">
+                            </colgroup>
                             <thead>
                                 <tr>
-                                    <th class="w-24">Ngày</th>
-                                    <th class="w-48">Chủ đề</th>
-                                    <th>Nội dung</th>
-                                    <th>Ghi chú</th>
+                                    <th class="sortable-th" onclick="setTableSort('learning','ngay')">Ngày</th>
+                                    <th class="sortable-th" onclick="setTableSort('learning','truong')">Chủ đề</th>
+                                    <th class="sortable-th" onclick="setTableSort('learning','noi_dung')">Nội dung</th>
+                                    <th class="sortable-th" onclick="setTableSort('learning','ghi_chu')">Ghi chú</th>
                                     <th>Mô tả</th>
-                                    <th class="w-16">Link</th>
-                                    <th class="text-center w-24">Thao tác</th>
+                                    <th>Link</th>
+                                    <th class="text-center">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody id="learningList"
@@ -1552,7 +1561,7 @@
 
 
     <!-- CALENDAR DAY DETAIL MODAL -->
-    <div id="calDayModalOverlay"
+    <div id="calDayModalOverlay" onclick="closeCalDayModal()"
         class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden transition-opacity duration-300"></div>
     <div id="calDayModal"
         class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-2xl bg-white rounded-3xl z-[101] hidden flex flex-col max-h-[85vh] shadow-2xl transition-all duration-300 transform scale-95 opacity-0">
@@ -1583,6 +1592,14 @@
                     hỏi</h4>
                 <div id="calDay-learning-list" class="space-y-3"></div>
             </div>
+        </div>
+        <div class="p-4 border-t bg-white flex flex-wrap gap-2 justify-end">
+            <button onclick="createNewNote(selectedCalendarDayIso); closeCalDayModal()"
+                class="px-3 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100">+ Ghi chú</button>
+            <button onclick="openExpenseModal(selectedCalendarDayIso); closeCalDayModal()"
+                class="px-3 py-2 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100">+ Chi tiêu</button>
+            <button onclick="openLearningModal(selectedCalendarDayIso); closeCalDayModal()"
+                class="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100">+ Học hỏi</button>
         </div>
     </div>
     <script>
